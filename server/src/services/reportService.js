@@ -95,6 +95,18 @@ export const getMonthToDateReport = async (userId, dateStr) => {
   const { start, end } = getMonthToDateRange(dateStr);
   const statistics = await fetchAggregatedStats(userId, start, end);
 
+  // Daily trend aggregation
+  const trendsRes = await query(
+    `SELECT reading_date,
+            ROUND(AVG(glucose_value)::numeric, 1)::float as average,
+            COUNT(*)::int as count
+     FROM readings
+     WHERE user_id = $1 AND reading_date >= $2 AND reading_date <= $3
+     GROUP BY reading_date
+     ORDER BY reading_date ASC`,
+    [userId, start, end]
+  );
+
   return {
     type: 'month-to-date',
     period: {
@@ -102,6 +114,11 @@ export const getMonthToDateReport = async (userId, dateStr) => {
       end,
     },
     statistics,
+    daily_trends: trendsRes.rows.map((r) => ({
+      date: formatDate(r.reading_date),
+      average: r.average,
+      count: r.count,
+    })),
     has_data: statistics.count > 0,
   };
 };
@@ -117,6 +134,18 @@ export const getMonthlyReport = async (userId, dateStr) => {
   const { start, end } = getPreviousMonthRange(dateStr);
   const statistics = await fetchAggregatedStats(userId, start, end);
 
+  // Daily trend aggregation
+  const trendsRes = await query(
+    `SELECT reading_date,
+            ROUND(AVG(glucose_value)::numeric, 1)::float as average,
+            COUNT(*)::int as count
+     FROM readings
+     WHERE user_id = $1 AND reading_date >= $2 AND reading_date <= $3
+     GROUP BY reading_date
+     ORDER BY reading_date ASC`,
+    [userId, start, end]
+  );
+
   return {
     type: 'monthly',
     period: {
@@ -124,6 +153,11 @@ export const getMonthlyReport = async (userId, dateStr) => {
       end,
     },
     statistics,
+    daily_trends: trendsRes.rows.map((r) => ({
+      date: formatDate(r.reading_date),
+      average: r.average,
+      count: r.count,
+    })),
     has_data: statistics.count > 0,
   };
 };

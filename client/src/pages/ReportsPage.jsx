@@ -225,7 +225,44 @@ export const ReportsPage = () => {
         </div>
       )}
 
-      {/* Bonus Visualization Chart when data is available in daily breakdown */}
+      {/* Period Trend Visualization Chart (for Month-to-date and Monthly reports) */}
+      {activeReportTab !== 'daily' && hasData && reportData?.daily_trends?.length > 0 && (
+        <div className="bg-white rounded-3xl border border-purple-50 p-6 shadow-soft">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h4 className="text-sm font-bold text-slate-800">
+                {activeReportTab === 'monthly' ? 'Previous Month Trend Chart' : 'Month-to-Date Trend Chart'}
+              </h4>
+              <p className="text-xs text-slate-500">Daily average blood glucose trajectory across the reporting period</p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-50 text-brand-700">
+              {reportData.daily_trends.length} Recorded Days
+            </span>
+          </div>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={reportData.daily_trends.map((t) => ({
+                  name: t.date.slice(5), // Show MM-DD for clean spacing
+                  value: t.average,
+                }))}
+                margin={{ top: 10, right: 20, left: -10, bottom: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b' }} />
+                <YAxis domain={[0, 200]} tick={{ fontSize: 11, fill: '#64748b' }} />
+                <Tooltip
+                  formatter={(val) => [`${val} mg/dL`, 'Daily Average']}
+                  contentStyle={{ borderRadius: '12px', border: '1px solid #ede9fe', fontSize: '12px' }}
+                />
+                <Bar dataKey="value" fill="#a78bfa" radius={[6, 6, 0, 0]} maxBarSize={36} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Daily Reading Profile Chart */}
       {activeReportTab === 'daily' && hasData && reportData?.readings?.length > 0 && (
         <div className="bg-white rounded-3xl border border-purple-50 p-6 shadow-soft">
           <h4 className="text-sm font-bold text-slate-800 mb-4">Daily Glucose Profile</h4>
