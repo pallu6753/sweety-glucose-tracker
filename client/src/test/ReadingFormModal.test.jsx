@@ -64,8 +64,9 @@ describe('Frontend Reading Form Validation Tests', () => {
   it('validates Rule 3: Duplicate slot error', async () => {
     const handleSubmit = vi.fn();
     const handleClose = vi.fn();
+    const today = new Date().toISOString().split('T')[0];
     const existing = [
-      { id: '1', reading_date: '2026-11-13', time_slot: 'morning', glucose_value: 100 },
+      { id: '1', reading_date: today, time_slot: 'morning', glucose_value: 100 },
     ];
 
     render(
