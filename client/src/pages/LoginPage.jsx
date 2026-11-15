@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Activity, Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Activity, Eye, EyeOff, Lock, Mail, ArrowRight, Sparkles } from 'lucide-react';
 
 export const LoginPage = ({ onNavigateToRegister }) => {
   const { login } = useAuth();
@@ -20,6 +20,18 @@ export const LoginPage = ({ onNavigateToRegister }) => {
 
     setLoading(true);
     const res = await login(email, password);
+    setLoading(false);
+    if (!res.success) {
+      setError(res.message);
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setError(null);
+    setEmail('demo@sweety.com');
+    setPassword('SweetyDemo2026!');
+    setLoading(true);
+    const res = await login('demo@sweety.com', 'SweetyDemo2026!');
     setLoading(false);
     if (!res.success) {
       setError(res.message);
@@ -111,6 +123,27 @@ export const LoginPage = ({ onNavigateToRegister }) => {
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-purple-100"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-3 text-slate-400 font-medium">Quick Evaluator Access</span>
+            </div>
+          </div>
+
+          {/* Instant 1-Click Demo Button */}
+          <button
+            type="button"
+            disabled={loading}
+            onClick={handleDemoLogin}
+            className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 hover:border-brand-300 transition-all cursor-pointer shadow-sm"
+          >
+            <Sparkles className="w-4 h-4 text-brand-600" />
+            <span>{loading ? 'Opening Demo...' : '⚡ Try Demo Account (1-Click)'}</span>
+          </button>
 
           {/* Registration Redirect Link */}
           <div className="mt-6 text-center text-sm text-slate-500">
