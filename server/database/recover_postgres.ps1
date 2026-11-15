@@ -39,9 +39,14 @@ while ([string]::IsNullOrWhiteSpace($plainPwd)) {
     }
 }
 
-# 3. Backup original pg_hba.conf
-Write-Host "`n[1/6] Backing up pg_hba.conf to pg_hba.conf.bak..." -ForegroundColor Green
-Copy-Item -Path $hbaFile -Destination $hbaBackup -Force
+# 3. Backup original pg_hba.conf safely (do not overwrite if a clean backup already exists)
+Write-Host "`n[1/6] Backing up pg_hba.conf..." -ForegroundColor Green
+if (-not (Test-Path $hbaBackup)) {
+    Copy-Item -Path $hbaFile -Destination $hbaBackup -Force
+    Write-Host "Created initial backup at $hbaBackup" -ForegroundColor Gray
+} else {
+    Write-Host "Preserved existing pristine backup at $hbaBackup" -ForegroundColor Gray
+}
 
 # Guaranteed restoration in try / finally block
 try {
@@ -119,18 +124,29 @@ CLIENT_URL=http://localhost:5173
 
 Set-Content -Path "C:\Users\Pallavi\Documents\sweety-glucose-tracker\server\.env" -Value $envContent -Encoding utf8
 
-# 8. VERIFY SCRAM-SHA-256 RESTORATION
+# 8. VERIFY SCRAM-SHA-256 RESTORATION (FILE-LEVEL & SOCKET-LEVEL)
 Write-Host "`nVerifying security and authentication..." -ForegroundColor Cyan
 
-# Test A: Unauthenticated connection must be REJECTED
-$unauthAttempt = & $psqlPath -U sweety_app -h 127.0.0.1 -d sweety_glucose_tracker -w -c "SELECT 1;" 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "[VERIFIED] Passwordless connection rejected: SCRAM-SHA-256 is strictly enforced." -ForegroundColor Green
+# Test A: Inspect pg_hba.conf file directly to verify SCRAM-SHA-256 text is present and NO trust remains
+$restoredHba = Get-Content $hbaFile
+$activeTrust = $restoredHba | Where-Object { $_ -match "^\s*host\s+all\s+all\s+.*trust" }
+$activeScram = $restoredHba | Where-Object { $_ -match "127\.0\.0\.1/32\s+scram-sha-256" }
+
+if (-not $activeTrust -and $activeScram) {
+    Write-Host "[VERIFIED] File check: pg_hba.conf strictly enforces scram-sha-256 and has no trust directives." -ForegroundColor Green
 } else {
-    Write-Host "[WARNING] Passwordless connection succeeded. Check pg_hba.conf!" -ForegroundColor Red
+    Write-Host "[WARNING] File check: Review pg_hba.conf configuration." -ForegroundColor Red
 }
 
-# Test B: Authenticated connection with sweety_app and password must SUCCEED
+# Test B: Unauthenticated connection must be REJECTED by PostgreSQL engine
+$unauthAttempt = & $psqlPath -U sweety_app -h 127.0.0.1 -d sweety_glucose_tracker -w -c "SELECT 1;" 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[VERIFIED] Engine check: Passwordless connection rejected (SCRAM-SHA-256 enforced)." -ForegroundColor Green
+} else {
+    Write-Host "[WARNING] Engine check: Passwordless connection succeeded unexpectedly." -ForegroundColor Red
+}
+
+# Test C: Authenticated connection with sweety_app and password must SUCCEED
 $env:PGPASSWORD = $plainPwd
 $authAttempt = & $psqlPath -U sweety_app -h 127.0.0.1 -d sweety_glucose_tracker -c "SELECT current_user, current_database();" 2>&1
 $authExit = $LASTEXITCODE
