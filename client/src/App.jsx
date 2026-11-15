@@ -27,7 +27,10 @@ const AppContent = () => {
 
   const handleTryDemo = async () => {
     try {
-      await login('demo@sweety.com', 'SweetyDemo2026!');
+      const res = await login('demo@sweety.com', 'SweetyDemo2026!');
+      if (!res?.success) {
+        setPublicView('login');
+      }
     } catch (err) {
       console.error('Demo login error:', err);
       setPublicView('login');

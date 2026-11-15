@@ -54,4 +54,15 @@ describe('Authentication Pages Validation & Accessibility Tests', () => {
     fireEvent.click(demoBtn);
     expect(mockLogin).toHaveBeenCalledWith('demo@sweety.com', 'SweetyDemo2026!');
   });
+
+  it('displays error message when Demo Account login fails', async () => {
+    mockLogin.mockResolvedValueOnce({ success: false, message: 'Invalid email or password.' });
+    render(<LoginPage onNavigateToRegister={() => {}} onNavigateToHome={() => {}} />);
+
+    const demoBtn = screen.getByRole('button', { name: /⚡ Try Demo Account/i });
+    fireEvent.click(demoBtn);
+
+    const errorAlert = await screen.findByText('Invalid email or password.');
+    expect(errorAlert).toBeInTheDocument();
+  });
 });

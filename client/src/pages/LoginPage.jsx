@@ -9,6 +9,7 @@ export const LoginPage = ({ onNavigateToRegister, onNavigateToHome }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [forgotNotice, setForgotNotice] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -31,11 +32,11 @@ export const LoginPage = ({ onNavigateToRegister, onNavigateToHome }) => {
     setError(null);
     setEmail('demo@sweety.com');
     setPassword('SweetyDemo2026!');
-    setLoading(true);
+    setDemoLoading(true);
     const res = await login('demo@sweety.com', 'SweetyDemo2026!');
-    setLoading(false);
+    setDemoLoading(false);
     if (!res.success) {
-      setError(res.message);
+      setError(res.message || 'Demo login failed. Please verify credentials or register.');
     }
   };
 
@@ -159,7 +160,7 @@ export const LoginPage = ({ onNavigateToRegister, onNavigateToHome }) => {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || demoLoading}
               className="w-full mt-2 flex items-center justify-center space-x-2 py-3 px-4 rounded-xl text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 disabled:opacity-50 shadow-md shadow-brand-500/20 transition-all cursor-pointer"
             >
               <span>{loading ? 'Signing in...' : 'Sign In'}</span>
@@ -180,12 +181,21 @@ export const LoginPage = ({ onNavigateToRegister, onNavigateToHome }) => {
           {/* Instant 1-Click Demo Button */}
           <button
             type="button"
-            disabled={loading}
+            disabled={loading || demoLoading}
             onClick={handleDemoLogin}
-            className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 hover:border-brand-300 transition-all cursor-pointer shadow-sm"
+            className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 disabled:opacity-50 border border-brand-200 hover:border-brand-300 transition-all cursor-pointer shadow-sm"
           >
-            <Sparkles className="w-4 h-4 text-brand-600" />
-            <span>{loading ? 'Opening Demo...' : '⚡ Try Demo Account (1-Click)'}</span>
+            {demoLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
+                <span>Connecting to Demo Account...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 text-brand-600" />
+                <span>⚡ Try Demo Account (1-Click)</span>
+              </>
+            )}
           </button>
 
           {/* Registration Redirect Link */}
