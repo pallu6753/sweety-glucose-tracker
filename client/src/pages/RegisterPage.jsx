@@ -20,8 +20,9 @@ export const RegisterPage = ({ onNavigateToLogin }) => {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError('Password must be at least 8 characters long and contain at least one letter and one number.');
       return;
     }
 
@@ -116,7 +117,7 @@ export const RegisterPage = ({ onNavigateToLogin }) => {
                 </div>
                 <input
                   type="password"
-                  placeholder="At least 6 characters"
+                  placeholder="At least 8 characters with letter & number"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all bg-white"

@@ -12,8 +12,9 @@ export const validateRegistrationInput = ({ name, email, password }) => {
     throw new ApiError(400, 'Please enter a valid email address.', ERROR_CODES.VALIDATION_ERROR);
   }
 
-  if (!password || typeof password !== 'string' || password.length < 6) {
-    throw new ApiError(400, 'Password must be at least 6 characters long.', ERROR_CODES.VALIDATION_ERROR);
+  const PASSWORD_STRENGTH_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+  if (!password || typeof password !== 'string' || !PASSWORD_STRENGTH_REGEX.test(password)) {
+    throw new ApiError(400, 'Password must be at least 8 characters long and contain at least one letter and one number.', ERROR_CODES.VALIDATION_ERROR);
   }
 
   return {
