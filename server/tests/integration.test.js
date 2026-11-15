@@ -5,23 +5,26 @@ const { Pool } = pkg;
 import { createApp } from '../src/app.js';
 import { config } from '../src/config/env.js';
 
+// Top-level database availability probe for Jest test registration
+let dbAvailable = false;
+const testPool = new Pool({ connectionString: config.testDatabaseUrl, connectionTimeoutMillis: 3000 });
+
+try {
+  const probeClient = await testPool.connect();
+  probeClient.release();
+  dbAvailable = true;
+} catch (err) {
+  console.warn('[TEST NOTICE] Test database connection not reachable. Integration tests will be skipped.');
+  dbAvailable = false;
+}
+
+const runIfDb = () => (dbAvailable ? test : test.skip);
+
 describe('Live PostgreSQL Integration Test Suite', () => {
   let app;
-  let testPool;
-  let dbAvailable = false;
 
   beforeAll(async () => {
     app = createApp();
-    testPool = new Pool({ connectionString: config.testDatabaseUrl, connectionTimeoutMillis: 3000 });
-
-    try {
-      const client = await testPool.connect();
-      client.release();
-      dbAvailable = true;
-    } catch (err) {
-      console.warn('[TEST NOTICE] Test database connection not currently reachable. Tests will reflect connectivity state.');
-      dbAvailable = false;
-    }
   });
 
   afterAll(async () => {
@@ -29,8 +32,6 @@ describe('Live PostgreSQL Integration Test Suite', () => {
       await testPool.end();
     }
   });
-
-  const runIfDb = () => (dbAvailable ? test : test.skip);
 
   test('Database connection prerequisite check', () => {
     if (!dbAvailable) {
