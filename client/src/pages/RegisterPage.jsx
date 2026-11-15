@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Activity, Lock, Mail, User, ArrowRight } from 'lucide-react';
+import { Activity, Lock, Mail, User, ArrowRight, Eye, EyeOff, ArrowLeft, Sparkles } from 'lucide-react';
 
-export const RegisterPage = ({ onNavigateToLogin }) => {
+export const RegisterPage = ({ onNavigateToLogin, onNavigateToHome, onTryDemo }) => {
   const { register } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -20,6 +22,12 @@ export const RegisterPage = ({ onNavigateToLogin }) => {
       return;
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+
     const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
     if (!passwordRegex.test(password)) {
       setError('Password must be at least 8 characters long and contain at least one letter and one number.');
@@ -27,12 +35,12 @@ export const RegisterPage = ({ onNavigateToLogin }) => {
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match. Please verify.');
+      setError('Passwords do not match. Please verify both entries.');
       return;
     }
 
     setLoading(true);
-    const res = await register(name, email, password);
+    const res = await register(name.trim(), email.trim().toLowerCase(), password);
     setLoading(false);
     if (!res.success) {
       setError(res.message);
@@ -40,7 +48,20 @@ export const RegisterPage = ({ onNavigateToLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#faf8ff] via-[#f5f3ff] to-[#fbfaff] flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#faf8ff] text-slate-800 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+      {/* Top Navigation Back to Landing */}
+      {onNavigateToHome && (
+        <div className="absolute top-6 left-6">
+          <button
+            onClick={onNavigateToHome}
+            className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-500 hover:text-brand-600 transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Home</span>
+          </button>
+        </div>
+      )}
+
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-accent-pink flex items-center justify-center text-white shadow-xl shadow-brand-500/25">
@@ -55,12 +76,17 @@ export const RegisterPage = ({ onNavigateToLogin }) => {
         </p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
-        <div className="bg-white py-8 px-6 shadow-soft-lg sm:rounded-3xl border border-purple-100 sm:px-10">
-          <h3 className="text-xl font-semibold text-slate-900 mb-6">Create Your Account</h3>
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="bg-white py-8 px-6 shadow-soft-lg rounded-3xl border border-purple-100 sm:px-10">
+          <div className="mb-6">
+            <h3 className="text-xl font-bold text-slate-900">Create your account</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Start tracking daily blood glucose readings with complete privacy.
+            </p>
+          </div>
 
           {error && (
-            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs leading-relaxed">
               {error}
             </div>
           )}
@@ -116,13 +142,20 @@ export const RegisterPage = ({ onNavigateToLogin }) => {
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
-                  type="password"
-                  placeholder="At least 8 characters with letter & number"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="At least 8 chars with letter & number"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all bg-white"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all bg-white"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -136,13 +169,20 @@ export const RegisterPage = ({ onNavigateToLogin }) => {
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
-                  type="password"
-                  placeholder="Confirm your password"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Re-enter your password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all bg-white"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all bg-white"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 
@@ -157,8 +197,22 @@ export const RegisterPage = ({ onNavigateToLogin }) => {
             </button>
           </form>
 
-          {/* Login Redirect Link */}
-          <div className="mt-6 text-center text-sm text-slate-500">
+          {/* Quick Evaluator Demo Access */}
+          {onTryDemo && (
+            <div className="mt-4 pt-4 border-t border-purple-100">
+              <button
+                type="button"
+                onClick={onTryDemo}
+                className="w-full flex items-center justify-center space-x-1.5 py-2.5 px-4 rounded-xl text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 transition-all cursor-pointer"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-brand-600" />
+                <span>⚡ Try Demo Account (1-Click)</span>
+              </button>
+            </div>
+          )}
+
+          {/* Redirect to Login */}
+          <div className="mt-6 text-center text-xs text-slate-500">
             Already have an account?{' '}
             <button
               onClick={onNavigateToLogin}

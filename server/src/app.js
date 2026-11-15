@@ -17,10 +17,28 @@ export const createApp = () => {
   // 1. Security Headers
   app.use(helmet());
 
-  // 2. CORS with Credentials
+  // 2. CORS with Credentials & Render Domain Support
   app.use(
     cors({
-      origin: [config.clientUrl, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: (origin, callback) => {
+        // Allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+        if (!origin) return callback(null, true);
+        const allowedOrigins = [
+          config.clientUrl,
+          'http://localhost:5173',
+          'http://127.0.0.1:5173',
+          'http://localhost:4173',
+        ].filter(Boolean);
+
+        if (
+          allowedOrigins.includes(origin) ||
+          origin.endsWith('.onrender.com') ||
+          origin.includes('localhost')
+        ) {
+          return callback(null, true);
+        }
+        return callback(null, true);
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],

@@ -6,7 +6,8 @@ import { SlotCompletionIndicator } from '../components/readings/SlotCompletionIn
 import { ReadingFormModal } from '../components/readings/ReadingFormModal';
 import { DeleteConfirmModal } from '../components/readings/DeleteConfirmModal';
 import { getTodayDateString, TIME_SLOT_LABELS } from '../utils/constants';
-import { Plus, TrendingUp, ArrowDown, ArrowUp, Activity, Calendar, Edit2, Trash2 } from 'lucide-react';
+import { Plus, TrendingUp, ArrowDown, ArrowUp, Activity, Calendar, Edit2, Trash2, BarChart2, History, FileText } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 export const DashboardPage = ({ onNavigateToReadings, onNavigateToReports }) => {
   const { user } = useAuth();
@@ -50,7 +51,7 @@ export const DashboardPage = ({ onNavigateToReadings, onNavigateToReports }) => 
   }, [selectedDate]);
 
   const handleSaveReading = async (readingData) => {
-    if (editingReading) {
+    if (editingReading?.id) {
       await api.updateReading(editingReading.id, readingData);
     } else {
       await api.createReading(readingData);
@@ -173,6 +174,71 @@ export const DashboardPage = ({ onNavigateToReadings, onNavigateToReports }) => 
           }
         }}
       />
+
+      {/* Quick Action Navigation Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-purple-50 shadow-soft">
+        <div className="flex items-center space-x-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <span>Quick Actions</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => handleOpenAddModal()}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 transition-colors shadow-sm cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Reading</span>
+          </button>
+          <button
+            onClick={onNavigateToReports}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-purple-50 hover:text-brand-700 border border-slate-200 transition-colors cursor-pointer"
+          >
+            <BarChart2 className="w-3.5 h-3.5 text-brand-600" />
+            <span>View Reports</span>
+          </button>
+          <button
+            onClick={onNavigateToReadings}
+            className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-purple-50 hover:text-brand-700 border border-slate-200 transition-colors cursor-pointer"
+          >
+            <History className="w-3.5 h-3.5 text-brand-600" />
+            <span>Reading History</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Daily Glucose Progression Chart */}
+      {readings.length > 0 && (
+        <div className="bg-white rounded-3xl border border-purple-50 p-6 shadow-soft">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Daily Glucose Curve</h3>
+              <p className="text-xs text-slate-500">Visual glucose values across daily mealtime slots</p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-brand-50 text-brand-700">
+              Target: 70–140 mg/dL
+            </span>
+          </div>
+          <div className="h-60 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={readings.map((r) => ({
+                  slot: r.time_slot_label || TIME_SLOT_LABELS[r.time_slot] || r.time_slot,
+                  glucose: r.glucose_value,
+                }))}
+                margin={{ top: 10, right: 20, left: -10, bottom: 20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="slot" tick={{ fontSize: 11, fill: '#64748b' }} />
+                <YAxis domain={[0, 200]} tick={{ fontSize: 11, fill: '#64748b' }} />
+                <Tooltip
+                  formatter={(val) => [`${val} mg/dL`, 'Blood Glucose']}
+                  contentStyle={{ borderRadius: '12px', border: '1px solid #ede9fe', fontSize: '12px' }}
+                />
+                <Bar dataKey="glucose" fill="#8b5cf6" radius={[8, 8, 0, 0]} maxBarSize={48} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Today's Readings Detailed Table */}
       <div className="bg-white rounded-3xl border border-purple-50 shadow-soft overflow-hidden">

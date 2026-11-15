@@ -32,14 +32,19 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     try {
       const res = await api.login(email, password);
-      if (res.success && res.data?.user) {
+      if (res && res.success && res.data?.user) {
         setUser(res.data.user);
         return { success: true };
       }
-      return { success: false, message: 'Invalid response from server' };
+      const msg = res?.message || 'Invalid response from server. Please try again.';
+      setError(msg);
+      return { success: false, message: msg };
     } catch (err) {
-      setError(err.message);
-      return { success: false, message: err.message };
+      const msg = err.message === 'Failed to fetch'
+        ? 'Unable to connect to the backend server. Please verify the service is running.'
+        : err.message;
+      setError(msg);
+      return { success: false, message: msg };
     }
   };
 
@@ -47,14 +52,19 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     try {
       const res = await api.register(name, email, password);
-      if (res.success && res.data?.user) {
+      if (res && res.success && res.data?.user) {
         setUser(res.data.user);
         return { success: true };
       }
-      return { success: false, message: 'Invalid response from server' };
+      const msg = res?.message || 'Invalid response from server. Please try again.';
+      setError(msg);
+      return { success: false, message: msg };
     } catch (err) {
-      setError(err.message);
-      return { success: false, message: err.message };
+      const msg = err.message === 'Failed to fetch'
+        ? 'Unable to connect to the backend server. Please verify the service is running.'
+        : err.message;
+      setError(msg);
+      return { success: false, message: msg };
     }
   };
 

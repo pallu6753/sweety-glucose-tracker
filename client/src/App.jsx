@@ -4,6 +4,7 @@ import { Navbar } from './components/layout/Navbar';
 import { Activity } from 'lucide-react';
 
 // Code-split pages via React.lazy dynamic imports
+const LandingPage = lazy(() => import('./pages/LandingPage').then(m => ({ default: m.LandingPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import('./pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
@@ -20,9 +21,18 @@ const PageLoader = () => (
 );
 
 const AppContent = () => {
-  const { user, loading } = useAuth();
-  const [authView, setAuthView] = useState('login'); // 'login' | 'register'
+  const { user, loading, login } = useAuth();
+  const [publicView, setPublicView] = useState('landing'); // 'landing' | 'login' | 'register'
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'readings' | 'reports'
+
+  const handleTryDemo = async () => {
+    try {
+      await login('demo@sweety.com', 'SweetyDemo2026!');
+    } catch (err) {
+      console.error('Demo login error:', err);
+      setPublicView('login');
+    }
+  };
 
   if (loading) {
     return (
@@ -35,14 +45,30 @@ const AppContent = () => {
     );
   }
 
-  // Unauthenticated view
+  // Unauthenticated view: Public Landing Page, Login, or Register
   if (!user) {
     return (
       <Suspense fallback={<PageLoader />}>
-        {authView === 'register' ? (
-          <RegisterPage onNavigateToLogin={() => setAuthView('login')} />
-        ) : (
-          <LoginPage onNavigateToRegister={() => setAuthView('register')} />
+        {publicView === 'landing' && (
+          <LandingPage
+            onGetStarted={() => setPublicView('register')}
+            onSignIn={() => setPublicView('login')}
+            onTryDemo={handleTryDemo}
+            onExploreDashboard={handleTryDemo}
+          />
+        )}
+        {publicView === 'register' && (
+          <RegisterPage
+            onNavigateToLogin={() => setPublicView('login')}
+            onNavigateToHome={() => setPublicView('landing')}
+            onTryDemo={handleTryDemo}
+          />
+        )}
+        {publicView === 'login' && (
+          <LoginPage
+            onNavigateToRegister={() => setPublicView('register')}
+            onNavigateToHome={() => setPublicView('landing')}
+          />
         )}
       </Suspense>
     );

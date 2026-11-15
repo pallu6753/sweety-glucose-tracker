@@ -27,9 +27,9 @@ export const Navbar = ({ activeTab, onSelectTab }) => {
           <nav className="flex items-center space-x-1 sm:space-x-2">
             <button
               onClick={() => onSelectTab('dashboard')}
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
                 activeTab === 'dashboard'
-                  ? 'bg-brand-50 text-brand-700 shadow-sm'
+                  ? 'bg-brand-50 text-brand-700 font-semibold shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
@@ -39,9 +39,9 @@ export const Navbar = ({ activeTab, onSelectTab }) => {
 
             <button
               onClick={() => onSelectTab('readings')}
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
                 activeTab === 'readings'
-                  ? 'bg-brand-50 text-brand-700 shadow-sm'
+                  ? 'bg-brand-50 text-brand-700 font-semibold shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
@@ -51,9 +51,9 @@ export const Navbar = ({ activeTab, onSelectTab }) => {
 
             <button
               onClick={() => onSelectTab('reports')}
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center space-x-1.5 px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors cursor-pointer ${
                 activeTab === 'reports'
-                  ? 'bg-brand-50 text-brand-700 shadow-sm'
+                  ? 'bg-brand-50 text-brand-700 font-semibold shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >

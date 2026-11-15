@@ -37,7 +37,7 @@ export const ReadingsPage = () => {
   }, [filterDate]);
 
   const handleSaveReading = async (readingData) => {
-    if (editingReading) {
+    if (editingReading?.id) {
       await api.updateReading(editingReading.id, readingData);
     } else {
       await api.createReading(readingData);

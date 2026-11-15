@@ -1,15 +1,27 @@
 /**
  * Centralized API Service Layer
- * Supports HttpOnly cookie authentication via credentials: 'include'
+ * Supports dual-mode authentication:
+ * 1. HttpOnly cookie authentication via credentials: 'include'
+ * 2. Bearer Authorization header fallback for cross-origin deployments
  */
 
-const API_BASE_URL = '/api';
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return '/api';
+  const clean = envUrl.replace(/\/+$/, '');
+  return clean.endsWith('/api') ? clean : `${clean}/api`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 class ApiClient {
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('sweety_auth_token') : null;
+
     const headers = {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     };
 
@@ -46,21 +58,35 @@ class ApiClient {
 
   // --- Auth Endpoints ---
   async register(name, email, password) {
-    return this.request('/auth/register', {
+    const res = await this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ name, email, password }),
     });
+    if (res?.data?.token) {
+      localStorage.setItem('sweety_auth_token', res.data.token);
+    }
+    return res;
   }
 
   async login(email, password) {
-    return this.request('/auth/login', {
+    const res = await this.request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
+    if (res?.data?.token) {
+      localStorage.setItem('sweety_auth_token', res.data.token);
+    }
+    return res;
   }
 
   async logout() {
-    return this.request('/auth/logout', { method: 'POST' });
+    try {
+      await this.request('/auth/logout', { method: 'POST' });
+    } finally {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('sweety_auth_token');
+      }
+    }
   }
 
   async getCurrentUser() {
@@ -74,6 +100,9 @@ class ApiClient {
   }
 
   async getReading(id) {
+    if (!id || id === 'undefined') {
+      throw new Error('Valid reading ID is required.');
+    }
     return this.request(`/readings/${id}`, { method: 'GET' });
   }
 
@@ -85,6 +114,9 @@ class ApiClient {
   }
 
   async updateReading(id, readingData) {
+    if (!id || id === 'undefined') {
+      throw new Error('Valid reading ID is required to update a reading.');
+    }
     return this.request(`/readings/${id}`, {
       method: 'PUT',
       body: JSON.stringify(readingData),
@@ -92,6 +124,9 @@ class ApiClient {
   }
 
   async deleteReading(id) {
+    if (!id || id === 'undefined') {
+      throw new Error('Valid reading ID is required to delete a reading.');
+    }
     return this.request(`/readings/${id}`, { method: 'DELETE' });
   }
 
