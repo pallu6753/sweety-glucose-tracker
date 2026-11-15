@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/layout/Navbar';
-import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { ReadingsPage } from './pages/ReadingsPage';
-import { ReportsPage } from './pages/ReportsPage';
 import { Activity } from 'lucide-react';
+
+// Code-split pages via React.lazy dynamic imports
+const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/RegisterPage').then(m => ({ default: m.RegisterPage })));
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const ReadingsPage = lazy(() => import('./pages/ReadingsPage').then(m => ({ default: m.ReadingsPage })));
+const ReportsPage = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
+
+const PageLoader = () => (
+  <div className="min-h-[50vh] flex flex-col items-center justify-center space-y-3">
+    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-accent-pink flex items-center justify-center text-white shadow-md animate-pulse">
+      <Activity className="w-4 h-4" />
+    </div>
+    <p className="text-xs font-medium text-slate-400">Loading view...</p>
+  </div>
+);
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -26,10 +37,15 @@ const AppContent = () => {
 
   // Unauthenticated view
   if (!user) {
-    if (authView === 'register') {
-      return <RegisterPage onNavigateToLogin={() => setAuthView('login')} />;
-    }
-    return <LoginPage onNavigateToRegister={() => setAuthView('register')} />;
+    return (
+      <Suspense fallback={<PageLoader />}>
+        {authView === 'register' ? (
+          <RegisterPage onNavigateToLogin={() => setAuthView('login')} />
+        ) : (
+          <LoginPage onNavigateToRegister={() => setAuthView('register')} />
+        )}
+      </Suspense>
+    );
   }
 
   // Authenticated view
@@ -38,14 +54,16 @@ const AppContent = () => {
       <Navbar activeTab={activeTab} onSelectTab={setActiveTab} />
 
       <main className="flex-1">
-        {activeTab === 'dashboard' && (
-          <DashboardPage
-            onNavigateToReadings={() => setActiveTab('readings')}
-            onNavigateToReports={() => setActiveTab('reports')}
-          />
-        )}
-        {activeTab === 'readings' && <ReadingsPage />}
-        {activeTab === 'reports' && <ReportsPage />}
+        <Suspense fallback={<PageLoader />}>
+          {activeTab === 'dashboard' && (
+            <DashboardPage
+              onNavigateToReadings={() => setActiveTab('readings')}
+              onNavigateToReports={() => setActiveTab('reports')}
+            />
+          )}
+          {activeTab === 'readings' && <ReadingsPage />}
+          {activeTab === 'reports' && <ReportsPage />}
+        </Suspense>
       </main>
 
       <footer className="border-t border-purple-50 bg-white/50 py-6 text-center text-xs text-slate-400">
