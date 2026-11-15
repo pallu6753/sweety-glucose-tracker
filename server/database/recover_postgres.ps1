@@ -1,14 +1,15 @@
 # ==============================================================================
 # Sweety Glucose Tracker – Automated Local PostgreSQL Recovery & Setup Script
 # ==============================================================================
+# Hardened Safety Version (Line-by-line reviewed)
 # Requires Administrator Privileges (Run in "Windows PowerShell (Admin)")
 # ==============================================================================
 
 # 1. Verify Administrative Privileges
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Write-Host "[ERROR] This recovery script must be run as Administrator." -ForegroundColor Red
-    Write-Host "Please right-click the Windows Start menu, select 'Windows PowerShell (Admin)' or 'Terminal (Admin)', and run this script." -ForegroundColor Yellow
+    Write-Host "[ERROR] This script must be run as Administrator." -ForegroundColor Red
+    Write-Host "Please right-click Windows Start, select 'Terminal (Admin)' or 'Windows PowerShell (Admin)', and run this script." -ForegroundColor Yellow
     Exit 1
 }
 
@@ -24,82 +25,89 @@ if (-not (Test-Path $hbaFile)) {
 }
 
 Write-Host "=================================================================" -ForegroundColor Cyan
-Write-Host "Sweety Glucose Tracker – Local PostgreSQL Recovery" -ForegroundColor Cyan
+Write-Host "Sweety Glucose Tracker – Local PostgreSQL Hardened Setup" -ForegroundColor Cyan
 Write-Host "=================================================================" -ForegroundColor Cyan
 
-# 2. Backup pg_hba.conf
-Write-Host "[1/7] Backing up pg_hba.conf to pg_hba.conf.bak..." -ForegroundColor Green
-Copy-Item -Path $hbaFile -Destination $hbaBackup -Force
-
-# 3. Temporarily update pg_hba.conf to trust for 127.0.0.1 and ::1
-Write-Host "[2/7] Temporarily setting local connections to 'trust'..." -ForegroundColor Green
-$content = Get-Content $hbaFile
-$updatedContent = $content -replace "host\s+all\s+all\s+127\.0\.0\.1/32\s+scram-sha-256", "host    all             all             127.0.0.1/32            trust"
-$updatedContent = $updatedContent -replace "host\s+all\s+all\s+::1/128\s+scram-sha-256", "host    all             all             ::1/128                 trust"
-Set-Content -Path $hbaFile -Value $updatedContent -Encoding utf8
-
-# 4. Restart service to apply temporary trust
-Write-Host "[3/7] Restarting PostgreSQL service ($serviceName)..." -ForegroundColor Green
-Restart-Service -Name $serviceName
-
-# 5. Prompt for new sweety_app password securely
-Write-Host "`n[4/7] Choose a local password for the dedicated application user 'sweety_app':" -ForegroundColor Yellow
-$securePwd = Read-Host -Prompt "Enter password for sweety_app" -AsSecureString
-$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePwd)
-$plainPwd = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-
-if ([string]::IsNullOrWhiteSpace($plainPwd)) {
-    $plainPwd = "SweetyLocalAppPass2026!"
-    Write-Host "No password entered. Using default secure local password: $plainPwd" -ForegroundColor Gray
+# 2. Prompt for password securely (never echoed or printed)
+$plainPwd = ""
+while ([string]::IsNullOrWhiteSpace($plainPwd)) {
+    $securePwd = Read-Host -Prompt "Enter a strong local password for the dedicated 'sweety_app' user" -AsSecureString
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePwd)
+    $plainPwd = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    if ([string]::IsNullOrWhiteSpace($plainPwd)) {
+        Write-Host "Password cannot be empty. Please enter a valid password." -ForegroundColor Yellow
+    }
 }
 
-# 6. Execute SQL setup
-Write-Host "[5/7] Creating role 'sweety_app' and databases 'sweety_glucose_tracker' and 'sweety_glucose_tracker_test'..." -ForegroundColor Green
+# 3. Backup original pg_hba.conf
+Write-Host "`n[1/6] Backing up pg_hba.conf to pg_hba.conf.bak..." -ForegroundColor Green
+Copy-Item -Path $hbaFile -Destination $hbaBackup -Force
 
-# Set/Reset postgres superuser password as well
-& $psqlPath -U postgres -h 127.0.0.1 -c "ALTER USER postgres WITH PASSWORD '$plainPwd';"
+# Guaranteed restoration in try / finally block
+try {
+    # 4. Temporarily set trust strictly for 127.0.0.1/32 and ::1/128
+    Write-Host "[2/6] Temporarily enabling local loopback trust (127.0.0.1 & ::1 only)..." -ForegroundColor Green
+    $content = Get-Content $hbaFile
+    $updatedContent = $content -replace "host\s+all\s+all\s+127\.0\.0\.1/32\s+scram-sha-256", "host    all             all             127.0.0.1/32            trust"
+    $updatedContent = $updatedContent -replace "host\s+all\s+all\s+::1/128\s+scram-sha-256", "host    all             all             ::1/128                 trust"
+    Set-Content -Path $hbaFile -Value $updatedContent -Encoding utf8
 
-# Setup sweety_app role and databases
-$sqlCmd = @"
+    # Restart service for temporary local trust
+    Write-Host "[3/6] Reloading PostgreSQL service with temporary local configuration..." -ForegroundColor Green
+    Restart-Service -Name $serviceName
+
+    # 5. Create sweety_app role and databases (DO NOT touch postgres superuser account)
+    Write-Host "[4/6] Creating application role 'sweety_app' and databases..." -ForegroundColor Green
+    
+    # Escape single quotes in password for SQL string literal
+    $escapedSqlPwd = $plainPwd.Replace("'", "''")
+
+    $setupRoleSql = @"
 DO `$do`$
 BEGIN
    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'sweety_app') THEN
-      CREATE ROLE sweety_app WITH LOGIN PASSWORD '$plainPwd';
+      CREATE ROLE sweety_app WITH LOGIN PASSWORD '$escapedSqlPwd';
    ELSE
-      ALTER ROLE sweety_app WITH PASSWORD '$plainPwd';
+      ALTER ROLE sweety_app WITH PASSWORD '$escapedSqlPwd';
    END IF;
 END
 `$do`$;
 "@
-& $psqlPath -U postgres -h 127.0.0.1 -c $sqlCmd
+    & $psqlPath -U postgres -h 127.0.0.1 -c $setupRoleSql | Out-Null
 
-# Create databases if they don't exist
-$db1Check = & $psqlPath -U postgres -h 127.0.0.1 -tAc "SELECT 1 FROM pg_database WHERE datname='sweety_glucose_tracker'"
-if ($db1Check -ne "1") {
-    & $psqlPath -U postgres -h 127.0.0.1 -c "CREATE DATABASE sweety_glucose_tracker OWNER sweety_app;"
+    # Create sweety_glucose_tracker if not exists
+    $db1Exists = & $psqlPath -U postgres -h 127.0.0.1 -tAc "SELECT 1 FROM pg_database WHERE datname='sweety_glucose_tracker'"
+    if ($db1Exists -ne "1") {
+        & $psqlPath -U postgres -h 127.0.0.1 -c "CREATE DATABASE sweety_glucose_tracker OWNER sweety_app;" | Out-Null
+    }
+
+    # Create sweety_glucose_tracker_test if not exists
+    $db2Exists = & $psqlPath -U postgres -h 127.0.0.1 -tAc "SELECT 1 FROM pg_database WHERE datname='sweety_glucose_tracker_test'"
+    if ($db2Exists -ne "1") {
+        & $psqlPath -U postgres -h 127.0.0.1 -c "CREATE DATABASE sweety_glucose_tracker_test OWNER sweety_app;" | Out-Null
+    }
+
+    & $psqlPath -U postgres -h 127.0.0.1 -c "GRANT ALL PRIVILEGES ON DATABASE sweety_glucose_tracker TO sweety_app;" | Out-Null
+    & $psqlPath -U postgres -h 127.0.0.1 -c "GRANT ALL PRIVILEGES ON DATABASE sweety_glucose_tracker_test TO sweety_app;" | Out-Null
+
+} finally {
+    # 6. ALWAYS RESTORE original pg_hba.conf (SCRAM-SHA-256) even if an error occurred above
+    Write-Host "[5/6] Restoring original pg_hba.conf and re-locking with SCRAM-SHA-256..." -ForegroundColor Green
+    if (Test-Path $hbaBackup) {
+        Copy-Item -Path $hbaBackup -Destination $hbaFile -Force
+        Remove-Item -Path $hbaBackup -Force
+    }
+    Restart-Service -Name $serviceName
 }
 
-$db2Check = & $psqlPath -U postgres -h 127.0.0.1 -tAc "SELECT 1 FROM pg_database WHERE datname='sweety_glucose_tracker_test'"
-if ($db2Check -ne "1") {
-    & $psqlPath -U postgres -h 127.0.0.1 -c "CREATE DATABASE sweety_glucose_tracker_test OWNER sweety_app;"
-}
+# 7. Generate fresh local random 256-bit JWT Secret dynamically
+Write-Host "[6/6] Generating fresh local JWT secret and writing server/.env..." -ForegroundColor Green
+$randomBytes = New-Object byte[] 32
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($randomBytes)
+$jwtSecret = ($randomBytes | ForEach-Object { "{0:x2}" -f $_ }) -join ""
 
-& $psqlPath -U postgres -h 127.0.0.1 -c "GRANT ALL PRIVILEGES ON DATABASE sweety_glucose_tracker TO sweety_app;"
-& $psqlPath -U postgres -h 127.0.0.1 -c "GRANT ALL PRIVILEGES ON DATABASE sweety_glucose_tracker_test TO sweety_app;"
-
-# 7. Immediately Restore pg_hba.conf to SCRAM-SHA-256
-Write-Host "[6/7] Restoring original pg_hba.conf (SCRAM-SHA-256 security)..." -ForegroundColor Green
-Copy-Item -Path $hbaBackup -Destination $hbaFile -Force
-Remove-Item -Path $hbaBackup -Force
-
-# Restart service to re-lock with SCRAM-SHA-256
-Restart-Service -Name $serviceName
-
-# 8. Write server/.env
-Write-Host "[7/7] Generating server/.env and testing authenticated connection..." -ForegroundColor Green
 $encodedPwd = [System.Uri]::EscapeDataString($plainPwd)
-$jwtSecret = "815c0d6c176b8b127fab62a976729e873fab48ea1e3d08d0e9700151fae2d285"
-
 $envContent = @"
 PORT=5000
 DATABASE_URL=postgresql://sweety_app:${encodedPwd}@localhost:5432/sweety_glucose_tracker
@@ -111,14 +119,30 @@ CLIENT_URL=http://localhost:5173
 
 Set-Content -Path "C:\Users\Pallavi\Documents\sweety-glucose-tracker\server\.env" -Value $envContent -Encoding utf8
 
-# Test authenticated connection with sweety_app using the password
+# 8. VERIFY SCRAM-SHA-256 RESTORATION
+Write-Host "`nVerifying security and authentication..." -ForegroundColor Cyan
+
+# Test A: Unauthenticated connection must be REJECTED
+$unauthAttempt = & $psqlPath -U sweety_app -h 127.0.0.1 -d sweety_glucose_tracker -w -c "SELECT 1;" 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[VERIFIED] Passwordless connection rejected: SCRAM-SHA-256 is strictly enforced." -ForegroundColor Green
+} else {
+    Write-Host "[WARNING] Passwordless connection succeeded. Check pg_hba.conf!" -ForegroundColor Red
+}
+
+# Test B: Authenticated connection with sweety_app and password must SUCCEED
 $env:PGPASSWORD = $plainPwd
-$testRes = & $psqlPath -U sweety_app -h 127.0.0.1 -d sweety_glucose_tracker -c "SELECT 'SUCCESS: Connected as sweety_app under SCRAM-SHA-256' as status;"
+$authAttempt = & $psqlPath -U sweety_app -h 127.0.0.1 -d sweety_glucose_tracker -c "SELECT current_user, current_database();" 2>&1
+$authExit = $LASTEXITCODE
 $env:PGPASSWORD = $null
 
-Write-Host "`n$testRes" -ForegroundColor Cyan
-Write-Host "=================================================================" -ForegroundColor Green
-Write-Host "PostgreSQL recovery and configuration completed successfully!" -ForegroundColor Green
-Write-Host "Original SCRAM-SHA-256 authentication has been fully restored." -ForegroundColor Green
-Write-Host "You can now run: npm run migrate && npm run seed && npm test" -ForegroundColor Green
-Write-Host "=================================================================" -ForegroundColor Green
+if ($authExit -eq 0) {
+    Write-Host "[VERIFIED] Authenticated connection as 'sweety_app' succeeded!" -ForegroundColor Green
+    Write-Host "=================================================================" -ForegroundColor Green
+    Write-Host "SUCCESS: Database setup complete with full SCRAM-SHA-256 enforcement." -ForegroundColor Green
+    Write-Host "Next step in normal terminal: npm run migrate && npm run seed && npm test" -ForegroundColor Green
+    Write-Host "=================================================================" -ForegroundColor Green
+} else {
+    Write-Host "[ERROR] Authenticated connection failed. Details:" -ForegroundColor Red
+    Write-Host $authAttempt -ForegroundColor Red
+}
